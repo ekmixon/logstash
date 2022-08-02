@@ -55,7 +55,7 @@ def main():
     create_pr(args)
 
 def create_pr(args):
-    
+
     if not vars(args)["continue"]:
         if not args.yes and input("This will destroy all local changes. " +
                                       "Continue? [y/n]: ") != "y":
@@ -65,12 +65,12 @@ def create_pr(args):
         check_call("git clean -df", shell=True)
         #check_call("git fetch", shell=True)
 
-        info("Checkout of {} to create a PR....".format(args.local_branch))
-        check_call("git checkout {}".format(args.local_branch), shell=True)
-        check_call("git rebase {}".format(args.to_branch), shell=True)
+        info(f"Checkout of {args.local_branch} to create a PR....")
+        check_call(f"git checkout {args.local_branch}", shell=True)
+        check_call(f"git rebase {args.to_branch}", shell=True)
 
     if args.diff:
-        call("git diff {}".format(args.to_branch), shell=True)
+        call(f"git diff {args.to_branch}", shell=True)
         if input("Continue? [y/n]: ") != "y":
             info("Aborting PR creation...")
             return 1
@@ -81,11 +81,9 @@ def create_pr(args):
     if not remote:
         remote = input("To which remote should I push? (your fork): ")
 
-    info("Pushing branch {} to remote {}".format(args.local_branch, remote))
-    call("git push {} :{} > /dev/null".format(remote, args.local_branch),
-         shell=True)
-    check_call("git push --set-upstream {} {}"
-               .format(remote, args.local_branch), shell=True)
+    info(f"Pushing branch {args.local_branch} to remote {remote}")
+    call(f"git push {remote} :{args.local_branch} > /dev/null", shell=True)
+    check_call(f"git push --set-upstream {remote} {args.local_branch}", shell=True)
 
     info("Checking if GitHub API token is available in `~/.elastic/github.token`")
     try:
@@ -94,35 +92,42 @@ def create_pr(args):
         token = False
 
     if not token:
-        info("GitHub API token not available.\n" +
-             "Manually create a PR by following this URL: \n\t" +
-             "https://github.com/elastic/logstash/compare/{}...{}:{}?expand=1"
-              .format(args.to_branch, remote, args.local_branch))
+        info(
+            (
+                "GitHub API token not available.\n"
+                + "Manually create a PR by following this URL: \n\t"
+                + f"https://github.com/elastic/logstash/compare/{args.to_branch}...{remote}:{args.local_branch}?expand=1"
+            )
+        )
+
     else:
         info("Automatically creating a PR for you...")
 
         base = "https://api.github.com/repos/elastic/logstash"
         session = requests.Session()
-        session.headers.update({"Authorization": "token " + token})
+        session.headers.update({"Authorization": f"token {token}"})
 
         # get the github username from the remote where we pushed
-        remote_url = check_output("git remote get-url {}".format(remote),
-                                  shell=True)
-        remote_user = re.search("github.com[:/](.+)/logstash", str(remote_url)).group(1)
+        remote_url = check_output(f"git remote get-url {remote}", shell=True)
+        remote_user = re.search("github.com[:/](.+)/logstash", str(remote_url))[1]
 
         ### TODO:
         title = input("Title: ")
         body = input("Description: ")
 
         # create PR
-        request = session.post(base + "/pulls", json=dict(
-            title=title,
-            head=remote_user + ":" + args.local_branch,
-            base=args.to_branch,
-            body=body
-        ))
+        request = session.post(
+            f"{base}/pulls",
+            json=dict(
+                title=title,
+                head=f"{remote_user}:{args.local_branch}",
+                base=args.to_branch,
+                body=body,
+            ),
+        )
+
         if request.status_code > 299:
-            info("Creating PR failed: {}".format(request.json()))
+            info(f"Creating PR failed: {request.json()}")
             sys.exit(1)
         new_pr = request.json()
 
@@ -143,7 +148,7 @@ def create_pr(args):
                 base + "/issues/{}/labels".format(args.pr_number), json=[version])
         """
 
-        info("Done. PR created: {}".format(new_pr["html_url"]))
+        info(f'Done. PR created: {new_pr["html_url"]}')
         info("Please go and check it and add the review tags")
 
 def get_version(base_dir):
@@ -157,7 +162,7 @@ def get_version(base_dir):
             #    return match.group('version')
 
 def info(msg):
-    print("\nINFO: {}".format(msg))
+    print(f"\nINFO: {msg}")
 
 if __name__ == "__main__":
     sys.exit(main())
